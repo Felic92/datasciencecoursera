@@ -1,0 +1,119 @@
+---
+title: "Statistical Inference Project Part Two"
+output: html_document
+---
+
+##Part 2: Basic Inferential Data Analysis
+
+**Context: **
+Now in the second portion of the class, we're going to analyze the ToothGrowth data in the R datasets package. 
+
+**1. Load the ToothGrowth data and perform some basic exploratory data analyses**
+
+As was covered in the exploratory data analysis class build in function such as str() and summary() can help us get an idea of what our data looks like and how we should proceed. What we need to watch out for is any indication of the following: outliers, assymetry of distribution, variability, clustering, non-linearity. That is because recognizing these properties would potentially help us with our downstream analysis.
+
+```{r}
+data(ToothGrowth)
+
+head(ToothGrowth)
+
+str(ToothGrowth)
+
+summary(ToothGrowth)
+```
+
+**2. Provide a basic summary of the data.**
+
+The summaries shown above haven't yielded anything particularly unexpected we should graphically verify this by making a plot of the data. Once thing I did notice is that only 3 specifc doses exist in this datset we can change them from the numerical values they currently hold to factors which will potentially help with understanding of what is going on with this dataset.
+
+Since we are looking at bivariate data which is examinging a relationship between tooth growth and supplemental dosages we could summarize the data in a variety of ways including: scatterplot(s), trend curves, and box-plots. For our purposes we will use the latter. 
+
+**The first boxplot shown below appears to demonstrate an overall increase in tooth growth as the dosages of each supplement are raised. While the second bar plot seems to demonstrate the overall OJ fields a higher median tooth growth but VC leads to more variable tooth growth.**
+```{r}
+#Change to dose labels to be more meaningful
+ToothGrowth$dose = factor(ToothGrowth$dose, levels=c(0.5,1.0,2.0), labels=c("low","med","high"))
+
+#Citation: Plot inspired by http://www.statmethods.net/graphs/boxplot.html
+boxplot(len~supp*dose, data=ToothGrowth, col=(c("orange","yellow")), main="Tooth Growth", xlab="Suppliment and Dose",ylab="Tooth Growth")
+
+boxplot(len~supp, data=ToothGrowth, col=(c("orange","yellow")), main="Tooth Growth", xlab="Suppliment and Dose",ylab="Tooth Growth")
+```
+
+A similar numerical summary of each supplement and dose combination similar to the graphical representation we created in the first boxplot can be created using the aggregate function this is shown below. 
+
+```{r}
+aggregate(len ~ ., summary, data = ToothGrowth)
+```
+
+Numerical summaries of the mean and standard deviation of each supplement group as a whole, similar to the graphical representation we created in the second boxplot, can be created also using the aggregate function as shown below.
+```{r}
+     aggregate(len ~ supp,data=ToothGrowth,FUN=mean)
+
+     aggregate(len ~ supp,data=ToothGrowth,FUN=sd)
+```
+
+**Use confidence intervals and hypothesis tests to compare tooth growth by supp and dose. (Use the techniques from class even if there's other approaches worth considering)**
+
+The summaries we created in the last section helped make certain observations about the data. For example after creating the first box plot we noted that it with in each of the grou OJ and VC it appeared that the tooth growth increased as the dosage of the given supplement increased. With this insights we are now ready to put forth a few hypotheses and see if we can perform test to find significant evidence to believe that differences exist amount and between the two groups. 
+
+**Test 1**
+
+Null Hypothesis: There is no difference in mean tooth growth between the group given OJ and the group given VC when considering all dosage levels.
+
+Alternative Hypothesis: There exists a difference in mean tooth growth between the group given OJ and the group given VC when considering all dosage levels.
+
+To get started we should note that since our hypothesis doesn't imply a directions we will be performing a two tailed test. We are also opperating under the assumptions that the observations are not paired and thus we will be performing an independent two tailed test. We are also assuming equal variance. These assumptions will be explained in more detail in the conclusion sections.
+
+Below we subset the data into groups and perform a two sided test on them to see if there is a statistically significent differnce in the means to imply that there is a differnce in tooth growth between the two groups.
+
+```{r}
+    OJData <- subset(ToothGrowth,ToothGrowth$supp == "OJ")
+    VCData <- subset(ToothGrowth,ToothGrowth$supp == "VC")
+
+    t.test(OJData$len,VCData$len,alternative = "two.sided",paired=FALSE,var.equal = TRUE,conf.level = 0.95)
+```
+
+The results show that the t-statistic is equal to 1.915 and the p-value is 0.06039. Since the p-value is low, but not quite below 5% so we will not reject the null hypothesis. And thus we conclude that there is not sufficient evidence to conclude that there exists a difference between the tooth growth of the group given OJ and the group given VC when all dosage levels are considered.
+
+**Test 2**
+
+We can also perform tests on more specific comparisons for example comparisons of the tooth growth lengths at different levels of each dosage. An example of this kind of comparison will be shown below.
+
+Null Hypothesis: There is no difference in mean tooth growth between the group given OJ in low amounts and the group given OJ in high amounts.
+
+Alternative Hypothesis: There exists a difference in mean tooth growth between the group given OJ in low amounts and the group given OJ in high amounts.
+
+```{r}
+    OJlowData <- subset(OJData,OJData$dose == "low")
+    OJhighData <- subset(OJData,OJData$dose == "high")
+
+    t.test(OJlowData$len,OJhighData$len,alternative = "two.sided",paired=FALSE,var.equal = TRUE,conf.level = 0.95)
+```
+
+The results show that the t-statistic is equal to -7.817 and the p-value is 3.402e-07. Since the p-value is very low, we have strong evidence that there does exist a differene in tooth growth between the subject group given high and low doses of OJ.
+
+**Test 3**
+
+We will demonstrate one more test which which look at internal properties of the dose VC
+
+Null Hypothesis: There is no difference in mean tooth growth between the group given VC in medium amounts and the group given VC in high amounts.
+
+Alternative Hypothesis: There exists a difference in mean tooth growth between the group given VC in medium amounts and the group given VC in high amounts.
+
+```{r}
+    VCmedData <- subset(VCData,VCData$dose == "med")
+    VChighData <- subset(VCData,VCData$dose == "high")
+
+    t.test(VCmedData$len,VChighData$len,alternative = "two.sided",paired=FALSE,var.equal = TRUE,conf.level = 0.95)
+```
+
+The results show that the t-statistic is equal to -5.47 and the p-value is 3.398e-05. Since the p-value is very low, we have strong evidence that there does exist a differene in tooth growth between the subject group given high amounts of VC and the group given medium doses of VC.
+
+**State your conclusions and the assumptions needed for your conclusions.**
+
+I will begin by stating the assumptions necessary for my analysis to make sense. Firstly I am assuming that we are dealing with independent samples and thus should not be performing paired T-tests. I believe this is the case because if we take a second to think about the data it is in the measurement of tooth growth after being given two different supplements, dependent samples would imply that there was some way to pair the observations or that the same guinea pigs were measured after being exposed to both supplements. If we think of these guinea pigs and their tooth growth as comparable to humans then it is likely that the majority of tooth growth occurs in a certain stage in the development of the guinea pigs. This time is when it would make the most sense in my opinion for researchers to give the animals supplements and measure growth. With this model by the time a subject had finished being observed I don't think it would make sense to expose them to a new supplement and try to measure further growth. 
+
+The lectures state that assuming constant variance means that the population variance for the independant groups is the same, even if the sample variances are different. I made this assumption in my analysis because all the subjects are drawn from the same population the population variance will be the same.
+
+In conclusion after conducting reviewing the three tests we conducted it seems that that while we do not have serious evidence to confirm a difference between the tooth growth of the subjects in the VC group and the subjects in the OJ group, we have gathered significant evidence to assume that there differences within the subjects in each of the groups which recieve different dosage levels of the same supplement. While we didn't test every combination of doages within the group we did examine high vs medium dosages of VC and low vs high dosages of OJ both test concluded that there was significant evidence to warrent the rejection of the numm hypotheis that no difference existed. With more time many more tests would be conducted and much more analysis would be done but given the circumstances of this assignment and the supposed length constraints I the three tests were sufficient. 
+

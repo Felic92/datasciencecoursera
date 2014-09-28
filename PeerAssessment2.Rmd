@@ -1,0 +1,138 @@
+---
+title: 'Analysis of Harmful Weather Events on U.S. Population'
+output: html_document
+---
+
+##Synopsis
+The aim of this study is to examine the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database in order to assess the affect these events have had on the population health and economy. The particular data set being examined is a collection of storm information in the U.S. starting in 1950 and encompassing events until November of 2011. We first clean the dataset by using our knowledge of the problem at hand to reduce the datasets size. We then create separate datsets with different focuses to answer each question. Within each we aggregate information inorder to generate the values we need then display them graphically and discuss our results. We ultimately conclue that the most harmful weather event on the U.S. population is the Tornado, and the event with the most economic cost is flooding. 
+
+##Data Processing
+
+The first step in any data analysis is the acquisition of data. Here we will download the file and read the data into the stormData variable.
+```{r gettingData, cache = TRUE}
+    sourceUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+
+    download.file(sourceUrl,destfile = "stormData.csv",method = "curl")
+
+    stormData <- read.csv("stormData.csv",stringsAsFactors=F)
+    
+
+```
+
+With the data loaded into our local environment one thing becomes immidately clear and this is the size of the data set. As we can see below it is 902297 x 37. 
+
+```{r dataDimension}
+    dim(stormData)
+```
+
+
+An observation that can help us reduce the size of the dataset is that the data collection and processing procedures have undergone major overhauls in the past the most recent change in data collection proceedures occured in 1996. 
+
+http://www.ncdc.noaa.gov/stormevents/details.jsp
+
+The above link describes that in 1996 the collection of 48 events  was started instead of only 4 events (Tornado, Thunderstorm, Wind, Hail) which had been collected in previous years. With this in mind I have decide to exclude all records that occur before 1996 in an attempt to eliminate inconsistancy within the dataset.
+
+This leaves us with only ~65 thousand observations instead of the previous ~90 thousand.
+
+The code for performing this reduction is seen below.
+```{r cleanData, cache = TRUE }
+
+library(lubridate)
+
+stormData <- subset(stormData,year(as.Date(stormData$BGN_DATE,"%m/%d/%Y %H:%M:%S")) > 1995)
+
+dim(stormData)
+
+
+```
+
+##Results 
+
+
+Another insight that helps us preprocess the data is that we are trying to assess which events are the most harmful to the U.S. in two separeate areas these being population health and economy. For this reason I have chosen to separate the current dataset into two separate datasets with each having emphasis on different variables.
+
+The first will aim to answer question 1 by giving an emphasis on events that have a notable negative affect on population health. This will be determined by subsetting the data to only include observations where the sum of the INJURIES and FATALITIES variables are greater than zero. This is because it is unlikely that events that cause no injuries or fatalities will be contenders for the most detrimental overall in regards to population health. This leave us with ~ 13 thousand observations in our stormDataPopulation dataset. 
+
+The second will aim to answer question 2 by giving an emphasis on events that have a notable negative economic affect. This will be determined by the sum of two variables PROPDMG (Property Damage) and CROPDMG (Crop Damage) if the sum is less than zero we exclude the data. This is because it is unlikely that events that cause no crop damage or property damage will be contenders for the most economically detrimental event overall. This leaves us with ~194 thousand observations in our stormDataPopulation dataset.
+
+The dimensions of the two datasets can be seen below. 
+
+```{r cleanData2, cache = TRUE}
+stormDataPopulation <- subset(stormData, stormData$INJURIES + stormData$FATALITIES > 0)
+
+dim(stormDataPopulation)
+
+stormDataEconomic <- subset(stormData, stormData$PROPDMG + stormData$CROPDMG  > 0)
+
+dim(stormDataEconomic)
+
+```
+
+One thing I want to note is that as far as cleaning this dataset many more actions could be taken in addition to the ones I choose to take here since the emphasis of this course is Reproducible Research and not Data Cleaning. For example if you were to call the `names(stormData$ENTYPE)` function on either of the two subdatasets you see quite a bit of variation that could likely with time and effort be aggregated into a smaller number of classes. An example of this can be seen in naming conventions of snow related events. There are many that likely could be generalized to a single class of events instead of indivduals like Snow, SNOW, SNOW AND ICE, etc. 
+
+Now we can discuss the strategy for calculating the events with the greatest effects in the domains were interested in.
+
+For population health the strategy will be be to aggregate sum of injuries and fatalities by EVTYPE, sort the results in descending order, and make a qplot to display the 10 most deadly events. While we could and probably should weight fatality more than injury I feel this is beyond the scope of this assignment. 
+
+The generated plot shows that Tornado is the clear winner when considering injuries and fatalities caused. It is important to notice the types of events that make it into the top 10 most deadly as it demonstrated by the figure below. Many of them seem similar and if time allowed a more specific set of classes could be build that would likely combine events like the TSTM WIND and THUNDERSTORM WIND as seen in the graph below. 
+
+```{r populationAnalysis}
+# Sum the fatality and injury values for each event
+PopulationHarmByEvent <- aggregate(INJURIES + FATALITIES ~ EVTYPE, data=stormDataPopulation,FUN = sum)
+
+# Sorts the results by the sums in descending order
+PopulationHarmByEvent <- PopulationHarmByEvent[order(-PopulationHarmByEvent[,2]),]
+
+# Select the 10 most deadly events
+mostHarmfulPopulationEvents <- PopulationHarmByEvent[1:10,]
+
+# make column names more descriptive
+names(mostHarmfulPopulationEvents) <- c("eventType","injuries")
+
+library(ggplot2)
+
+#Create and display a plot showing injuries for each of the top 10 event types
+ qplot(injuries,eventType,data=mostHarmfulPopulationEvents,main="10 Most Harmful Weather\n Events on U.S. Population",xlab="Injuries / Fatalities Caused",ylab="Type of Event")
+```
+
+The strategy for calculating events with the worst economic effects will be a slightly different. First we will have to create a new column containing the damage as calculated by multiplying the value of the PROPDMG and CROPDMG variables by their corresponding multipliers K (1000), M (1000000), or B (1000000000). This will first require us to fill in the bank values in the PROPDMGEXP and CROPDMGEXP variable columns. Afters this is addressed we can apply descending sort on this newely created column and display the top ten event results. 
+
+The figure below shows that the winner as far as economic damage is the Flood event, followed by Hurricaine/Typhoon. As was also mentioned in regards to the last graph with more time perhaps we would have built classes that would have grouped the FLOOD and FLASHFLOOD variable or maybe also grouped the storm realted variables.
+
+```{r economicAnalysis}
+#Creates a new column to store final result
+stormDataEconomic$totalDamage = ""
+
+#Fill missing values in multipliers with 0's
+stormDataEconomic$PROPDMGEXP[stormDataEconomic$PROPDMGEXP == ""] <- 0
+stormDataEconomic$CROPDMGEXP[stormDataEconomic$CROPDMGEXP == ""] <- 0
+
+#Create associations between abbreviations and corresponding values
+multiplierRef <- c("0" = 1, "K" = 1000, "M" = 1E6, "B" = 1E9)
+
+#Populate totalDamage column
+stormDataEconomic$totalDamage = stormDataEconomic$PROPDMG * multiplierRef[stormDataEconomic$PROPDMGEXP]
+
+# Sum the totalDamage values for each event
+EconomicHarmByEvent <- aggregate(totalDamage ~ EVTYPE, data=stormDataEconomic,FUN = sum)
+
+#Sort the totalDamage column in descending order
+EconomicHarmByEvent <- EconomicHarmByEvent[order(-EconomicHarmByEvent$totalDamage),]
+
+#Create a new dataframe with only events and damage in sorted order
+EconomicHarmByEvent <- EconomicHarmByEvent[,c("EVTYPE","totalDamage")]
+
+mostHarmfulEconomicEvents <- EconomicHarmByEvent[1:10,]
+
+# make column names more descriptive
+names(mostHarmfulEconomicEvents)[1] <- c("eventType")
+
+#Create and display a plot showing totalDamage for each of the top 10 event types
+qplot(totalDamage,eventType,data=mostHarmfulEconomicEvents, main="10 Most Harmful Weather\n Events on U.S. Economy",xlab="Total Damage (in U.S. dollars)", ylab="Type of Event")
+
+
+
+```
+
+
+
