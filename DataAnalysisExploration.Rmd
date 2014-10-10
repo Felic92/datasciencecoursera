@@ -1,0 +1,48 @@
+---
+title: "Data Analysis Project Exploratory Analysis"
+output:
+  html_document:
+    theme: cerulean
+---
+
+Here we will be performing some basic exploratory data analysis in relation to our original research question.
+
+**Research Question: ** The aim of study is to investigate if any potential relationship exists between highest degree an individual has attained and their feelings on the amount of money the U.S. is spending on space exploration. 
+
+
+Great. Now we can get started by loading in the dataset we are interested in, the GSS(General Society Survey) data.
+```{r loadData}
+    #Read in General Society Survey in to local variable gss
+    load(url("http://bit.ly/dasi_gss_data"))
+
+    #Check the dimensions of our gss data.
+    dim(gss)
+    
+```
+
+As we can see by looking at the dimensions the dataset is sizable. Containing ~57 thousand observations of 114 variables. Luckily we are only interested in finding a potential association between two of these variables. **netspac** (Feelings on Space Exploration Spending) and **degree** (Highest academic degree earned). 
+
+We can use the `aggregate()` command to help us build a smaller data frame which will contain information that will be relevant to our analysis this will be demonstrated below. The first table shows us the number of observations contained in each of the combinations of degree and natspac. This is valuable for looking for any obviously outliers and also getting a feel for the data we will be working with. 
+
+The summary generated shows the number of observations in each level of each variable. For example the natspac variable shows us how many individuals selected each of the three options and even how many chose not to respond (there are a large number of NA's maybe this could be something to look at)
+
+Finally a visual plot is created to give alternative perspective on the data and the problem at hand. One observation that appears apparent is that as highest degree attained increases the opinion that the U.S. is spending too much on space exploration tends to decrease this could be something to investigate further during the project. 
+
+```{r}
+
+    #Group natspac by degree and give a summary of each combination
+    aggregate(natspac ~ degree,data=gss,FUN = summary)
+
+    #Create a data frame containing only the desired 2 variables
+    df <- data.frame(gss$degree, gss$natspac)
+
+    dim(df)    
+    
+    #output counts of each type of observation per column
+    summary(df)
+
+    #output visualization of data 
+    par(mar = c(5,6,4,2))
+    plot(df,ylab = "")
+
+```
